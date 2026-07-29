@@ -4,8 +4,17 @@ vcpkg_from_github(
     REF v8.2
     SHA512 3ed296ea17d5f9be130c346da57217a4873f538115fc3191b0ca213480ac69697156525fc77bdf5e51bf3b6ac5b66258e5fe6e2337399135c1b0851f35da276e
     HEAD_REF master
-    PATCHES
-        fix-relocatable-config.patch
+)
+
+vcpkg_replace_string(
+    "${SOURCE_PATH}/Config/TasmanianConfig.in.cmake"
+    "include(\"@Tasmanian_final_install_path@/lib/@CMAKE_PROJECT_NAME@/@CMAKE_PROJECT_NAME@.cmake\")"
+    "include(\"\${CMAKE_CURRENT_LIST_DIR}/Tasmanian.cmake\")"
+)
+vcpkg_replace_string(
+    "${SOURCE_PATH}/Config/TasmanianConfig.in.cmake"
+    "set_property(TARGET Tasmanian::tasgrid PROPERTY IMPORTED_LOCATION \"@Tasmanian_final_install_path@/bin/tasgrid\${CMAKE_EXECUTABLE_SUFFIX_CXX}\")"
+    "set_property(TARGET Tasmanian::tasgrid PROPERTY IMPORTED_LOCATION \"\${PACKAGE_PREFIX_DIR}/tools/tasmanian/tasgrid\${CMAKE_EXECUTABLE_SUFFIX}\")"
 )
 
 if(VCPKG_LIBRARY_LINKAGE STREQUAL "dynamic")
