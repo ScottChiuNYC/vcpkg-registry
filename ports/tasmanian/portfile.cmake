@@ -4,6 +4,8 @@ vcpkg_from_github(
     REF v8.2
     SHA512 3ed296ea17d5f9be130c346da57217a4873f538115fc3191b0ca213480ac69697156525fc77bdf5e51bf3b6ac5b66258e5fe6e2337399135c1b0851f35da276e
     HEAD_REF master
+    PATCHES
+        fix-relocatable-config.patch
 )
 
 if(VCPKG_LIBRARY_LINKAGE STREQUAL "dynamic")
@@ -33,11 +35,16 @@ vcpkg_cmake_configure(
 
 vcpkg_cmake_install()
 vcpkg_cmake_config_fixup(PACKAGE_NAME Tasmanian CONFIG_PATH lib/Tasmanian)
+vcpkg_copy_tools(TOOL_NAMES tasgrid AUTO_CLEAN)
 vcpkg_copy_pdbs()
 
 file(REMOVE_RECURSE
     "${CURRENT_PACKAGES_DIR}/debug/include"
     "${CURRENT_PACKAGES_DIR}/debug/share"
+)
+file(REMOVE
+    "${CURRENT_PACKAGES_DIR}/include/tasgridLogs.hpp"
+    "${CURRENT_PACKAGES_DIR}/share/Tasmanian/TasmanianENVsetup.sh"
 )
 
 vcpkg_install_copyright(FILE_LIST "${SOURCE_PATH}/LICENSE")
