@@ -47,6 +47,7 @@ jobs:
         shell: python
         env:
           REGISTRY_BASELINE: ${{ github.event.pull_request.head.sha || github.sha }}
+          REGISTRY_REFERENCE: ${{ github.head_ref || 'main' }}
         run: |
           import json
           import os
@@ -62,6 +63,7 @@ jobs:
                   {
                       "kind": "git",
                       "repository": "https://github.com/ScottChiuNYC/vcpkg-registry",
+                      "reference": os.environ["REGISTRY_REFERENCE"],
                       "baseline": os.environ["REGISTRY_BASELINE"],
                       "packages": ["tasmanian"],
                   }
