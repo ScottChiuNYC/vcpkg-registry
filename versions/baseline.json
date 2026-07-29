@@ -1,0 +1,8 @@
+{
+  "default": {
+    "tasmanian": {
+      "baseline": "8.2.0",
+      "port-version": 0
+    }
+  }
+}

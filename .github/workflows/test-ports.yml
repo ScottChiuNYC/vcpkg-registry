@@ -1,0 +1,122 @@
+name: Test Ports
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/test-ports.yml'
+      - 'ports/**'
+      - 'versions/**'
+      - 'tests/**'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/test-ports.yml'
+      - 'ports/**'
+      - 'versions/**'
+      - 'tests/**'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: test-ports-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  VCPKG_ROOT: ${{ github.workspace }}/vcpkg
+  VCPKG_DISABLE_METRICS: 1
+
+jobs:
+  tasmanian:
+    name: Tasmanian / ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux
+            os: ubuntu-latest
+            cmake_args: -G Ninja -DCMAKE_BUILD_TYPE=Release
+          - name: Windows
+            os: windows-2022
+            cmake_args: -A x64
+
+    steps:
+      - name: Check out registry
+        uses: actions/checkout@v4
+
+      - name: Verify Tasmanian version index
+        shell: bash
+        run: |
+          port_tree="$(git rev-parse HEAD:ports/tasmanian)"
+          indexed_tree="$(python -c "import json; print(json.load(open('versions/t-/tasmanian.json'))['versions'][0]['git-tree'])")"
+          test "$port_tree" = "$indexed_tree"
+
+      - name: Write consumer registry configuration
+        shell: python
+        env:
+          REGISTRY_BASELINE: ${{ github.event.pull_request.head.sha || github.sha }}
+          REGISTRY_REFERENCE: ${{ github.head_ref || 'main' }}
+        run: |
+          import json
+          import os
+          from pathlib import Path
+
+          configuration = {
+              "default-registry": {
+                  "kind": "git",
+                  "repository": "https://github.com/microsoft/vcpkg",
+                  "baseline": "00807e89724847a866033a2f042c38fafae3c534",
+              },
+              "registries": [
+                  {
+                      "kind": "git",
+                      "repository": "https://github.com/ScottChiuNYC/vcpkg-registry",
+                      "reference": os.environ["REGISTRY_REFERENCE"],
+                      "baseline": os.environ["REGISTRY_BASELINE"],
+                      "packages": ["tasmanian"],
+                  }
+              ],
+          }
+          Path("tests/consumer/vcpkg-configuration.json").write_text(
+              json.dumps(configuration, indent=2) + "\n", encoding="utf-8"
+          )
+
+      - name: Install Ninja on Linux
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build
+
+      - name: Check out pinned vcpkg
+        uses: actions/checkout@v4
+        with:
+          repository: microsoft/vcpkg
+          ref: 00807e89724847a866033a2f042c38fafae3c534
+          path: vcpkg
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Bootstrap vcpkg on Linux
+        if: runner.os == 'Linux'
+        shell: bash
+        run: ./vcpkg/bootstrap-vcpkg.sh -disableMetrics
+
+      - name: Bootstrap vcpkg on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: .\vcpkg\bootstrap-vcpkg.bat -disableMetrics
+
+      - name: Configure consumer through Git registry
+        run: >-
+          cmake -S tests/consumer -B build/consumer
+          ${{ matrix.cmake_args }}
+          -DCMAKE_TOOLCHAIN_FILE=${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake
+
+      - name: Build consumer
+        run: cmake --build build/consumer --config Release
+
+      - name: Run consumer test
+        run: ctest --test-dir build/consumer -C Release --output-on-failure
