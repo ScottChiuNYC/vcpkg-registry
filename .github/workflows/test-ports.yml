@@ -36,6 +36,17 @@ jobs:
       - name: Check out registry
         uses: actions/checkout@v4
 
+      - name: Report Tasmanian port tree
+        shell: bash
+        run: git rev-parse HEAD:ports/tasmanian
+
+      - name: Install Ninja on Linux
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build
+
       - name: Check out pinned vcpkg
         uses: actions/checkout@v4
         with:
