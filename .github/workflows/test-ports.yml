@@ -3,8 +3,18 @@ name: Test Ports
 on:
   workflow_dispatch:
   pull_request:
+    paths:
+      - '.github/workflows/test-ports.yml'
+      - 'ports/**'
+      - 'versions/**'
+      - 'tests/**'
   push:
     branches: [main]
+    paths:
+      - '.github/workflows/test-ports.yml'
+      - 'ports/**'
+      - 'versions/**'
+      - 'tests/**'
 
 permissions:
   contents: read
