@@ -27,8 +27,10 @@ jobs:
         include:
           - name: Linux
             os: ubuntu-latest
+            cmake_args: -G Ninja -DCMAKE_BUILD_TYPE=Release
           - name: Windows
             os: windows-2022
+            cmake_args: -A x64
 
     steps:
       - name: Check out registry
@@ -56,7 +58,7 @@ jobs:
       - name: Configure consumer
         run: >-
           cmake -S tests/consumer -B build/consumer
-          -DCMAKE_BUILD_TYPE=Release
+          ${{ matrix.cmake_args }}
           -DCMAKE_TOOLCHAIN_FILE=${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake
           -DVCPKG_OVERLAY_PORTS=${{ github.workspace }}/ports
 
