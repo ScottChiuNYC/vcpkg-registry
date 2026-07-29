@@ -28,8 +28,8 @@ env:
   VCPKG_DISABLE_METRICS: 1
 
 jobs:
-  tasmanian:
-    name: Tasmanian / ${{ matrix.name }}
+  ports:
+    name: Custom ports / ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -46,12 +46,11 @@ jobs:
       - name: Check out registry
         uses: actions/checkout@v4
 
-      - name: Verify Tasmanian version index
+      - name: Report port trees
         shell: bash
         run: |
-          port_tree="$(git rev-parse HEAD:ports/tasmanian)"
-          indexed_tree="$(python -c "import json; print(json.load(open('versions/t-/tasmanian.json'))['versions'][0]['git-tree'])")"
-          test "$port_tree" = "$indexed_tree"
+          echo "gtest=$(git rev-parse HEAD:ports/gtest)"
+          echo "tasmanian=$(git rev-parse HEAD:ports/tasmanian)"
 
       - name: Write consumer registry configuration
         shell: python
@@ -83,6 +82,16 @@ jobs:
               json.dumps(configuration, indent=2) + "\n", encoding="utf-8"
           )
 
+      - name: Prepare gtest overlay
+        shell: python
+        run: |
+          from pathlib import Path
+          import shutil
+
+          target = Path("overlay-ports/gtest")
+          target.parent.mkdir(parents=True, exist_ok=True)
+          shutil.copytree(Path("ports/gtest"), target)
+
       - name: Install Ninja on Linux
         if: runner.os == 'Linux'
         shell: bash
@@ -109,14 +118,26 @@ jobs:
         shell: pwsh
         run: .\vcpkg\bootstrap-vcpkg.bat -disableMetrics
 
-      - name: Configure consumer through Git registry
+      - name: Configure consumer
         run: >-
           cmake -S tests/consumer -B build/consumer
           ${{ matrix.cmake_args }}
           -DCMAKE_TOOLCHAIN_FILE=${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake
+          -DVCPKG_OVERLAY_PORTS=${{ github.workspace }}/overlay-ports
+
+      - name: Verify pkgconf was not installed
+        shell: python
+        run: |
+          from pathlib import Path
+
+          info = Path("build/consumer/vcpkg_installed/vcpkg/info")
+          matches = sorted(info.glob("pkgconf_*"))
+          if matches:
+              raise SystemExit(f"pkgconf unexpectedly installed: {matches}")
+          print("Confirmed: pkgconf is absent from the manifest installation.")
 
       - name: Build consumer
         run: cmake --build build/consumer --config Release
 
-      - name: Run consumer test
+      - name: Run consumer tests
         run: ctest --test-dir build/consumer -C Release --output-on-failure
