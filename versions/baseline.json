@@ -1,5 +1,9 @@
 {
   "default": {
+    "gtest": {
+      "baseline": "1.17.0",
+      "port-version": 3
+    },
     "tasmanian": {
       "baseline": "8.2.0",
       "port-version": 0

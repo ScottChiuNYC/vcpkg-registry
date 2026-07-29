@@ -28,8 +28,8 @@ env:
   VCPKG_DISABLE_METRICS: 1
 
 jobs:
-  tasmanian:
-    name: Tasmanian / ${{ matrix.name }}
+  ports:
+    name: Custom ports / ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -46,12 +46,25 @@ jobs:
       - name: Check out registry
         uses: actions/checkout@v4
 
-      - name: Verify Tasmanian version index
-        shell: bash
+      - name: Verify version indices
+        shell: python
         run: |
-          port_tree="$(git rev-parse HEAD:ports/tasmanian)"
-          indexed_tree="$(python -c "import json; print(json.load(open('versions/t-/tasmanian.json'))['versions'][0]['git-tree'])")"
-          test "$port_tree" = "$indexed_tree"
+          import json
+          import subprocess
+          from pathlib import Path
+
+          ports = {
+              "gtest": Path("versions/g-/gtest.json"),
+              "tasmanian": Path("versions/t-/tasmanian.json"),
+          }
+          for port, version_file in ports.items():
+              tree = subprocess.check_output(
+                  ["git", "rev-parse", f"HEAD:ports/{port}"], text=True
+              ).strip()
+              indexed = json.loads(version_file.read_text(encoding="utf-8"))["versions"][0]["git-tree"]
+              if tree != indexed:
+                  raise SystemExit(f"{port} tree mismatch: current={tree}, indexed={indexed}")
+              print(f"{port}={tree}")
 
       - name: Write consumer registry configuration
         shell: python
@@ -75,7 +88,7 @@ jobs:
                       "repository": "https://github.com/ScottChiuNYC/vcpkg-registry",
                       "reference": os.environ["REGISTRY_REFERENCE"],
                       "baseline": os.environ["REGISTRY_BASELINE"],
-                      "packages": ["tasmanian"],
+                      "packages": ["gtest", "tasmanian"],
                   }
               ],
           }
@@ -115,8 +128,19 @@ jobs:
           ${{ matrix.cmake_args }}
           -DCMAKE_TOOLCHAIN_FILE=${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake
 
+      - name: Verify pkgconf was not installed
+        shell: python
+        run: |
+          from pathlib import Path
+
+          info = Path("build/consumer/vcpkg_installed/vcpkg/info")
+          matches = sorted(info.glob("pkgconf_*"))
+          if matches:
+              raise SystemExit(f"pkgconf unexpectedly installed: {matches}")
+          print("Confirmed: pkgconf is absent from the manifest installation.")
+
       - name: Build consumer
         run: cmake --build build/consumer --config Release
 
-      - name: Run consumer test
+      - name: Run consumer tests
         run: ctest --test-dir build/consumer -C Release --output-on-failure

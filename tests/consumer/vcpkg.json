@@ -1,7 +1,8 @@
 {
-  "name": "tasmanian-registry-consumer",
+  "name": "custom-registry-consumer",
   "version-string": "0.0.0",
   "dependencies": [
+    "gtest",
     "tasmanian"
   ]
 }
