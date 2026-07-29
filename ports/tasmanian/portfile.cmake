@@ -1,0 +1,43 @@
+vcpkg_from_github(
+    OUT_SOURCE_PATH SOURCE_PATH
+    REPO ORNL/TASMANIAN
+    REF "v${VERSION}"
+    SHA512 0
+    HEAD_REF master
+)
+
+if(VCPKG_LIBRARY_LINKAGE STREQUAL "dynamic")
+    set(TASMANIAN_BUILD_SHARED_LIBS ON)
+else()
+    set(TASMANIAN_BUILD_SHARED_LIBS OFF)
+endif()
+
+vcpkg_cmake_configure(
+    SOURCE_PATH "${SOURCE_PATH}"
+    OPTIONS
+        -DBUILD_SHARED_LIBS=${TASMANIAN_BUILD_SHARED_LIBS}
+        -DTasmanian_ENABLE_RECOMMENDED=OFF
+        -DTasmanian_ENABLE_OPENMP=OFF
+        -DTasmanian_ENABLE_BLAS=OFF
+        -DTasmanian_ENABLE_PYTHON=OFF
+        -DTasmanian_ENABLE_CUDA=OFF
+        -DTasmanian_ENABLE_HIP=OFF
+        -DTasmanian_ENABLE_DPCPP=OFF
+        -DTasmanian_ENABLE_MAGMA=OFF
+        -DTasmanian_ENABLE_FORTRAN=OFF
+        -DTasmanian_ENABLE_MPI=OFF
+        -DTasmanian_ENABLE_SWIG=OFF
+        -DTasmanian_ENABLE_DOXYGEN=OFF
+        -DTasmanian_MATLAB_WORK_FOLDER=
+)
+
+vcpkg_cmake_install()
+vcpkg_cmake_config_fixup(PACKAGE_NAME Tasmanian CONFIG_PATH lib/Tasmanian)
+vcpkg_copy_pdbs()
+
+file(REMOVE_RECURSE
+    "${CURRENT_PACKAGES_DIR}/debug/include"
+    "${CURRENT_PACKAGES_DIR}/debug/share"
+)
+
+vcpkg_install_copyright(FILE_LIST "${SOURCE_PATH}/LICENSE")
