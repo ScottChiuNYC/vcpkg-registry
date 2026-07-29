@@ -36,9 +36,40 @@ jobs:
       - name: Check out registry
         uses: actions/checkout@v4
 
-      - name: Report Tasmanian port tree
+      - name: Verify Tasmanian version index
         shell: bash
-        run: git rev-parse HEAD:ports/tasmanian
+        run: |
+          port_tree="$(git rev-parse HEAD:ports/tasmanian)"
+          indexed_tree="$(python -c "import json; print(json.load(open('versions/t-/tasmanian.json'))['versions'][0]['git-tree'])")"
+          test "$port_tree" = "$indexed_tree"
+
+      - name: Write consumer registry configuration
+        shell: python
+        env:
+          REGISTRY_BASELINE: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          import json
+          import os
+          from pathlib import Path
+
+          configuration = {
+              "default-registry": {
+                  "kind": "git",
+                  "repository": "https://github.com/microsoft/vcpkg",
+                  "baseline": "00807e89724847a866033a2f042c38fafae3c534",
+              },
+              "registries": [
+                  {
+                      "kind": "git",
+                      "repository": "https://github.com/ScottChiuNYC/vcpkg-registry",
+                      "baseline": os.environ["REGISTRY_BASELINE"],
+                      "packages": ["tasmanian"],
+                  }
+              ],
+          }
+          Path("tests/consumer/vcpkg-configuration.json").write_text(
+              json.dumps(configuration, indent=2) + "\n", encoding="utf-8"
+          )
 
       - name: Install Ninja on Linux
         if: runner.os == 'Linux'
@@ -66,12 +97,11 @@ jobs:
         shell: pwsh
         run: .\vcpkg\bootstrap-vcpkg.bat -disableMetrics
 
-      - name: Configure consumer
+      - name: Configure consumer through Git registry
         run: >-
           cmake -S tests/consumer -B build/consumer
           ${{ matrix.cmake_args }}
           -DCMAKE_TOOLCHAIN_FILE=${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake
-          -DVCPKG_OVERLAY_PORTS=${{ github.workspace }}/ports
 
       - name: Build consumer
         run: cmake --build build/consumer --config Release
